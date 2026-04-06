@@ -1,6 +1,15 @@
-import { GameState } from "./state";
+import { GameState } from "./types";
+import { processSkillTick, SkillTickResult } from "./skills";
+import { processCombatTick, CombatTickResult } from "./combat";
+import { getTownBonuses } from "./town";
 
-export type TickCallback = (state: GameState, dt: number) => void;
+export type EngineTickResult = {
+  skillResult: SkillTickResult | null;
+  combatResult: CombatTickResult | null;
+  passiveGoldEarned: number;
+};
+
+export type TickCallback = (state: GameState, result: EngineTickResult, dt: number) => void;
 
 export class GameEngine {
   state: GameState;
@@ -14,7 +23,6 @@ export class GameEngine {
     this.lastTick = Date.now();
   }
 
-  /** Register a callback that fires every frame with (state, deltaSeconds) */
   onTick(cb: TickCallback): void {
     this.tickCallbacks.push(cb);
   }
@@ -33,59 +41,41 @@ export class GameEngine {
     }
   }
 
-  /** Core tick: accumulate passive income */
-  tick(dt: number): void {
-    const perSecond = this.getPassiveIncome();
-    const earned = perSecond * dt;
-    this.state.resources.main += earned;
-    this.state.stats.totalEarned += earned;
-  }
+  tick(dt: number): EngineTickResult {
+    const result: EngineTickResult = { skillResult: null, combatResult: null, passiveGoldEarned: 0 };
 
-  /** Handle a click on the main target */
-  click(): void {
-    const power = this.getClickPower();
-    this.state.resources.main += power;
-    this.state.stats.totalClicks++;
-    this.state.stats.totalEarned += power;
-  }
-
-  /** Calculate offline progress and apply it */
-  applyOfflineProgress(): number {
-    const now = Date.now();
-    const elapsed = (now - this.state.stats.lastSavedAt) / 1000;
-    if (elapsed > 1) {
-      const earned = this.getPassiveIncome() * elapsed;
-      this.state.resources.main += earned;
-      this.state.stats.totalEarned += earned;
-      return earned;
+    // Process active action
+    if (this.state.activeAction) {
+      if (this.state.activeAction.type === "skill") {
+        result.skillResult = processSkillTick(this.state, dt);
+      } else if (this.state.activeAction.type === "combat") {
+        result.combatResult = processCombatTick(this.state, dt);
+      }
     }
-    return 0;
-  }
 
-  /** Override these in your game to customize progression */
-  getClickPower(): number {
-    return 1;
-  }
+    // Town passive gold (Market)
+    const bonuses = getTownBonuses(this.state);
+    if (bonuses.passiveGoldPerMinute > 0) {
+      const goldPerSecond = bonuses.passiveGoldPerMinute / 60;
+      const earned = goldPerSecond * dt;
+      this.state.gold += earned;
+      result.passiveGoldEarned = earned;
+    }
 
-  getPassiveIncome(): number {
-    // Each upgrade level contributes 1/sec — customize this for your game
-    return Object.values(this.state.upgrades).reduce(
-      (sum, level) => sum + level,
-      0
-    );
+    return result;
   }
 
   private loop(): void {
     if (!this.running) return;
 
     const now = Date.now();
-    const dt = (now - this.lastTick) / 1000;
+    const dt = Math.min((now - this.lastTick) / 1000, 1); // cap at 1s per frame to avoid huge jumps
     this.lastTick = now;
 
-    this.tick(dt);
+    const result = this.tick(dt);
 
     for (const cb of this.tickCallbacks) {
-      cb(this.state, dt);
+      cb(this.state, result, dt);
     }
 
     this.rafId = requestAnimationFrame(() => this.loop());
