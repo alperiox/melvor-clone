@@ -7,31 +7,56 @@
     <title>Idle Clicker</title>
     <script type="module" src="/src/main.ts" defer></script>
   </head>
-
   <body>
     <div id="app">
-      <!-- Offline earnings banner -->
+      <!-- Offline banner -->
       <div id="offline-banner" class="offline-banner"></div>
 
-      <!-- Header: resource display -->
-      <header id="header">
-        <div class="resource-display">
-          <span id="resource-count" class="resource-count">0</span>
-          <span id="per-second" class="per-second">0/sec</span>
+      <!-- Top nav -->
+      <nav id="nav" class="nav">
+        <div class="nav-tabs">
+          <button class="nav-tab active" data-tab="skills">Skills</button>
+          <button class="nav-tab" data-tab="combat">Combat</button>
+          <button class="nav-tab" data-tab="town">Town</button>
+          <button class="nav-tab" data-tab="bank">Bank</button>
         </div>
-      </header>
+        <div class="nav-gold">
+          <span id="gold-display">0</span> GP
+        </div>
+      </nav>
 
-      <!-- Main: click area -->
-      <main id="main-area">
-        <button id="click-target" class="click-target">
-          CLICK
-        </button>
+      <!-- Skill sub-tabs (visible only on Skills tab) -->
+      <div id="skill-subtabs" class="subtabs">
+        <button class="subtab active" data-skill="woodcutting">Woodcutting</button>
+        <button class="subtab" data-skill="mining">Mining</button>
+        <button class="subtab" data-skill="fishing">Fishing</button>
+        <button class="subtab" data-skill="smithing">Smithing</button>
+        <button class="subtab" data-skill="cooking">Cooking</button>
+      </div>
+
+      <!-- Bank filter tabs (visible only on Bank tab) -->
+      <div id="bank-filters" class="subtabs" style="display: none;">
+        <button class="subtab active" data-filter="all">All</button>
+        <button class="subtab" data-filter="resource">Resources</button>
+        <button class="subtab" data-filter="food">Food</button>
+        <button class="subtab" data-filter="equipment">Equipment</button>
+      </div>
+
+      <!-- Main content area -->
+      <main id="content" class="content">
+        <div id="tab-skills" class="tab-panel active"></div>
+        <div id="tab-combat" class="tab-panel"></div>
+        <div id="tab-town" class="tab-panel"></div>
+        <div id="tab-bank" class="tab-panel"></div>
       </main>
 
-      <!-- Footer: stats -->
-      <footer id="footer">
-        <div class="stats">
-          Total clicks: <span id="click-count">0</span>
+      <!-- Persistent footer -->
+      <footer id="footer" class="footer">
+        <div class="footer-action">
+          <span id="footer-text">Idle</span>
+          <div class="footer-progress">
+            <div id="footer-bar" class="footer-bar" style="width: 0%"></div>
+          </div>
         </div>
       </footer>
     </div>
