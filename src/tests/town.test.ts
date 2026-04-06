@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getTownBonuses, canAffordUpgrade, upgradeBuilding, getBuildingUpgradeCost } from "../game/town";
+import { getTownBonuses, upgradeBuilding, getBuildingUpgradeCost } from "../game/town";
 import { createInitialState } from "../game/state";
 import { addItem } from "../game/bank";
 
