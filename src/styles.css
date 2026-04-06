@@ -245,6 +245,39 @@ html, body, #app { height: 100%; overflow: hidden; user-select: none; }
   font-variant-numeric: tabular-nums;
 }
 
+/* Smithing category labels */
+.action-category-label {
+  font-size: 13px; font-weight: 700; color: var(--gold);
+  margin-top: 14px; margin-bottom: 6px; padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+  text-transform: uppercase; letter-spacing: 1px;
+}
+.action-category-label:first-of-type { margin-top: 0; }
+
+/* Monster stats in area cards */
+.monster-list { margin-top: 6px; }
+.monster-stat-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 2px 0; font-size: 11px;
+}
+.monster-stat-name { color: var(--text); font-weight: 500; }
+.monster-stat-detail { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.monster-stats-inline {
+  font-size: 11px; color: var(--text-dim); margin-bottom: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Sell quantity buttons */
+.sell-section { margin-top: 10px; }
+.sell-label { font-size: 11px; color: var(--text-dim); margin-bottom: 4px; }
+.sell-buttons { display: flex; gap: 4px; }
+.sell-qty-btn {
+  flex: 1; padding: 5px 0; border: none; border-radius: 4px;
+  cursor: pointer; font-weight: 600; font-size: 11px;
+  background: var(--gold); color: #111; transition: all 0.15s;
+}
+.sell-qty-btn:hover { filter: brightness(1.15); }
+
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }

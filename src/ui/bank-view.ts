@@ -114,8 +114,16 @@ function buildBankDOM(state: GameState, container: HTMLElement): void {
       }
     }
 
-    // Sell button
-    html += `<button class="context-btn sell" data-action="sell" data-item="${ui.selectedBankItem}">Sell for ${formatNumber(item.sellPrice)} GP</button>`;
+    // Sell buttons with quantity options
+    html += `<div class="sell-section">
+      <div class="sell-label">Sell (${formatNumber(item.sellPrice)} GP each)</div>
+      <div class="sell-buttons">
+        <button class="sell-qty-btn" data-action="sell" data-item="${ui.selectedBankItem}" data-qty="1">1x</button>
+        <button class="sell-qty-btn" data-action="sell" data-item="${ui.selectedBankItem}" data-qty="10">10x</button>
+        <button class="sell-qty-btn" data-action="sell" data-item="${ui.selectedBankItem}" data-qty="100">100x</button>
+        <button class="sell-qty-btn" data-action="sell" data-item="${ui.selectedBankItem}" data-qty="all">All</button>
+      </div>
+    </div>`;
 
     html += `</div></div>`;
   }
@@ -133,7 +141,7 @@ function buildBankDOM(state: GameState, container: HTMLElement): void {
     }
 
     // Context panel actions
-    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>(".context-btn");
+    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>(".context-btn, .sell-qty-btn");
     if (!btn) return;
 
     const action = btn.dataset.action;
@@ -156,9 +164,15 @@ function buildBankDOM(state: GameState, container: HTMLElement): void {
     } else if (action === "sell") {
       const itemId = btn.dataset.item!;
       const item = getItem(itemId);
-      sellItem(state, itemId, 1);
-      showNotification(`Sold ${item.name} for ${item.sellPrice} GP`, "info");
-      if (!state.bank[itemId]) selectBankItem(null);
+      const qtyStr = btn.dataset.qty ?? "1";
+      const owned = getBankItemCount(state, itemId);
+      const qty = qtyStr === "all" ? owned : Math.min(parseInt(qtyStr, 10), owned);
+      if (qty > 0) {
+        sellItem(state, itemId, qty);
+        const totalGold = item.sellPrice * qty;
+        showNotification(`Sold ${qty} ${item.name} for ${formatNumber(totalGold)} GP`, "info");
+        if (!state.bank[itemId]) selectBankItem(null);
+      }
       invalidateBankView();
     }
   };

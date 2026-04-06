@@ -1,4 +1,4 @@
-import { GameState, SkillId } from "../game/types";
+import { GameState, SkillId, SkillActionDef } from "../game/types";
 import { getSkillActions, getSkillAction } from "../data/skills";
 import { getItem } from "../data/items";
 import { startSkillAction, getEffectiveInterval } from "../game/skills";
@@ -47,35 +47,22 @@ function buildSkillsDOM(state: GameState, container: HTMLElement, skillId: Skill
       <span class="xp-text" data-el="xp-text"></span>
     </div>
     <div class="xp-detail" data-el="xp-detail"></div>
-    <div class="action-grid">
   `;
 
-  for (const action of actions) {
-    const locked = skill.level < action.levelReq;
-
-    let ioText = "";
-    const inputParts = Object.entries(action.inputs).map(([id, qty]) => `${getItem(id).name} ×${qty}`);
-    const outputParts = Object.entries(action.outputs).map(([id, qty]) => `${getItem(id).name} ×${qty}`);
-    if (inputParts.length > 0) {
-      ioText = `${inputParts.join(", ")} → ${outputParts.join(", ")}`;
-    } else {
-      ioText = outputParts.join(", ");
+  // Group smithing actions by category, render others flat
+  if (skillId === "smithing") {
+    const groups = groupSmithingActions(actions);
+    for (const group of groups) {
+      html += `<div class="action-category-label">${group.label}</div>`;
+      html += `<div class="action-grid">`;
+      html += group.actions.map(a => renderActionCard(state, skill, a)).join("");
+      html += `</div>`;
     }
-
-    const interval = locked ? action.interval : getEffectiveInterval(state, action.id);
-
-    html += `
-      <div class="action-card ${locked ? 'locked' : ''}" data-action-id="${action.id}">
-        <div class="action-name">${action.name}</div>
-        <div class="action-info">${interval.toFixed(1)}s · ${action.xp} XP</div>
-        <div class="action-io">${ioText}</div>
-        ${locked ? `<div class="action-req">Requires Lv ${action.levelReq}</div>` : ''}
-        ${action.baseSuccessRate !== undefined && !locked ? `<div class="action-info">Success: ${Math.round(getSuccessRate(state, action) * 100)}%</div>` : ''}
-      </div>
-    `;
+  } else {
+    html += `<div class="action-grid">`;
+    html += actions.map(a => renderActionCard(state, skill, a)).join("");
+    html += `</div>`;
   }
-
-  html += `</div>`;
 
   // Progress section (always present, shown/hidden dynamically)
   html += `
@@ -173,6 +160,51 @@ function updateSkillsDynamic(state: GameState, container: HTMLElement, skillId: 
   } else if (progressSection) {
     progressSection.style.display = "none";
   }
+}
+
+function renderActionCard(state: GameState, skill: { level: number }, action: SkillActionDef): string {
+  const locked = skill.level < action.levelReq;
+
+  let ioText = "";
+  const inputParts = Object.entries(action.inputs).map(([id, qty]) => `${getItem(id).name} ×${qty}`);
+  const outputParts = Object.entries(action.outputs).map(([id, qty]) => `${getItem(id).name} ×${qty}`);
+  if (inputParts.length > 0) {
+    ioText = `${inputParts.join(", ")} → ${outputParts.join(", ")}`;
+  } else {
+    ioText = outputParts.join(", ");
+  }
+
+  const interval = locked ? action.interval : getEffectiveInterval(state, action.id);
+
+  return `
+    <div class="action-card ${locked ? 'locked' : ''}" data-action-id="${action.id}">
+      <div class="action-name">${action.name}</div>
+      <div class="action-info">${interval.toFixed(1)}s · ${action.xp} XP</div>
+      <div class="action-io">${ioText}</div>
+      ${locked ? `<div class="action-req">Requires Lv ${action.levelReq}</div>` : ''}
+      ${action.baseSuccessRate !== undefined && !locked ? `<div class="action-info">Success: ${Math.round(getSuccessRate(state, action) * 100)}%</div>` : ''}
+    </div>
+  `;
+}
+
+function groupSmithingActions(actions: SkillActionDef[]): { label: string; actions: SkillActionDef[] }[] {
+  const groups: { label: string; actions: SkillActionDef[] }[] = [
+    { label: "Smelting", actions: [] },
+    { label: "Bronze", actions: [] },
+    { label: "Iron", actions: [] },
+    { label: "Steel", actions: [] },
+    { label: "Mithril", actions: [] },
+  ];
+
+  for (const action of actions) {
+    if (action.id.startsWith("smelt_")) groups[0].actions.push(action);
+    else if (action.id.startsWith("forge_bronze_")) groups[1].actions.push(action);
+    else if (action.id.startsWith("forge_iron_")) groups[2].actions.push(action);
+    else if (action.id.startsWith("forge_steel_")) groups[3].actions.push(action);
+    else if (action.id.startsWith("forge_mithril_")) groups[4].actions.push(action);
+  }
+
+  return groups.filter(g => g.actions.length > 0);
 }
 
 function getSuccessRate(state: GameState, action: { skillId: SkillId; levelReq: number; baseSuccessRate?: number }): number {

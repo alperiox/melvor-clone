@@ -92,6 +92,7 @@ function buildCombatDOM(state: GameState, container: HTMLElement): void {
     } else {
       html += `
         <div class="monster-name">${monster.name}</div>
+        <div class="monster-stats-inline">Max Hit: ${monster.maxHit} · Evasion: ${monster.evasion} · Speed: ${monster.attackSpeed}s</div>
         <div class="hp-text" data-el="monster-hp-text">Monster HP: ${Math.max(0, Math.ceil(state.combat.monsterHp))} / ${monster.hp}</div>
         <div class="hp-bar-container"><div class="hp-bar monster" data-el="monster-hp-bar" style="width: ${Math.max(0, (state.combat.monsterHp / monster.hp) * 100)}%"></div></div>
         <div style="margin-top: 16px;"></div>
@@ -108,7 +109,15 @@ function buildCombatDOM(state: GameState, container: HTMLElement): void {
         <div class="area-card ${locked ? 'locked' : ''}" data-area-id="${area.id}">
           <div class="area-name">${area.name}</div>
           <div class="area-req">${locked ? `Requires Combat Lv ${area.levelReq}` : `Lv ${area.levelReq}+`}</div>
-          <div class="action-info">${area.monsterIds.map(id => getMonster(id).name).join(", ")}</div>
+          <div class="monster-list">
+            ${area.monsterIds.map(id => {
+              const m = getMonster(id);
+              return `<div class="monster-stat-row">
+                <span class="monster-stat-name">${m.name}</span>
+                <span class="monster-stat-detail">HP ${m.hp} · Hit ${m.maxHit} · Eva ${m.evasion} · ${m.attackSpeed}s</span>
+              </div>`;
+            }).join("")}
+          </div>
         </div>
       `;
     }
