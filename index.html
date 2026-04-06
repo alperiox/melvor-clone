@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="/src/styles.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Idle Clicker</title>
+    <script type="module" src="/src/main.ts" defer></script>
+  </head>
+
+  <body>
+    <div id="app">
+      <!-- Offline earnings banner -->
+      <div id="offline-banner" class="offline-banner"></div>
+
+      <!-- Header: resource display -->
+      <header id="header">
+        <div class="resource-display">
+          <span id="resource-count" class="resource-count">0</span>
+          <span id="per-second" class="per-second">0/sec</span>
+        </div>
+      </header>
+
+      <!-- Main: click area -->
+      <main id="main-area">
+        <button id="click-target" class="click-target">
+          CLICK
+        </button>
+      </main>
+
+      <!-- Footer: stats -->
+      <footer id="footer">
+        <div class="stats">
+          Total clicks: <span id="click-count">0</span>
+        </div>
+      </footer>
+    </div>
+  </body>
+</html>
