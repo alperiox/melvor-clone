@@ -4,19 +4,42 @@ import { sellItem, getBankItemCount } from "../game/bank";
 import { equip, unequip } from "../game/equipment";
 import { formatNumber } from "../game/state";
 import { getUIState, selectBankItem } from "./router";
+import { showNotification } from "./notifications";
+
+// Track what's rendered to avoid unnecessary rebuilds
+let renderedBankSnapshot: string = "";
+
+export function invalidateBankView(): void {
+  renderedBankSnapshot = "";
+}
 
 export function renderBankView(state: GameState, container: HTMLElement): void {
   const ui = getUIState();
+
+  // Build a lightweight snapshot of bank state for comparison
+  const bankKeys = Object.entries(state.bank)
+    .filter(([_, qty]) => qty > 0)
+    .map(([id, qty]) => `${id}:${qty}`)
+    .join(",");
+  const currentSnapshot = `${bankKeys}|${ui.selectedBankItem}|${ui.bankFilter}`;
+
+  if (currentSnapshot !== renderedBankSnapshot) {
+    buildBankDOM(state, container);
+    renderedBankSnapshot = currentSnapshot;
+  }
+}
+
+function buildBankDOM(state: GameState, container: HTMLElement): void {
+  const ui = getUIState();
   const filter = ui.bankFilter;
 
-  // Collect all items in bank
   const bankEntries = Object.entries(state.bank)
     .filter(([_, qty]) => qty > 0)
     .map(([id, qty]) => ({ id, qty, def: ITEMS[id] }))
     .filter((e) => e.def !== undefined)
     .filter((e) => filter === "all" || e.def.category === filter)
     .sort((a, b) => {
-      const catOrder = { resource: 0, food: 1, equipment: 2 };
+      const catOrder: Record<string, number> = { resource: 0, food: 1, equipment: 2 };
       return (catOrder[a.def.category] ?? 9) - (catOrder[b.def.category] ?? 9);
     });
 
@@ -38,7 +61,7 @@ export function renderBankView(state: GameState, container: HTMLElement): void {
   }
   html += `</div></div>`;
 
-  // Context panel (if item selected)
+  // Context panel
   if (ui.selectedBankItem && state.bank[ui.selectedBankItem]) {
     const item = getItem(ui.selectedBankItem);
     const qty = getBankItemCount(state, ui.selectedBankItem);
@@ -71,7 +94,7 @@ export function renderBankView(state: GameState, container: HTMLElement): void {
 
     html += `</div>`;
 
-    // Equip/unequip button
+    // Equip/unequip for equipment
     if (item.equipSlot) {
       const isEquipped = state.equipment[item.equipSlot] === ui.selectedBankItem;
       if (isEquipped) {
@@ -80,13 +103,9 @@ export function renderBankView(state: GameState, container: HTMLElement): void {
         html += `<button class="context-btn equip" data-action="equip" data-item="${ui.selectedBankItem}">Equip</button>`;
       }
     }
-    if (item.category === "food" && item.equipSlot === undefined) {
-      // Food items are equippable in food slot but use equipSlot on the item def
-      // Actually food items in our data DO have no equipSlot. We need to handle food equipping differently.
-      // Food is equipped to the "food" slot. Let's check:
-    }
+
+    // Food equip (separate from regular equipment)
     if (item.healAmount) {
-      // Food: equipping just marks the type to eat (no bank movement — combat eats from bank)
       const isEquipped = state.equipment.food === ui.selectedBankItem;
       if (isEquipped) {
         html += `<button class="context-btn unequip" data-action="unequip-food">Unequip Food</button>`;
@@ -104,27 +123,43 @@ export function renderBankView(state: GameState, container: HTMLElement): void {
   html += `</div>`;
   container.innerHTML = html;
 
-  // Event handlers
-  container.querySelectorAll<HTMLElement>(".bank-item").forEach((el) => {
-    el.addEventListener("click", () => selectBankItem(el.dataset.itemId!));
-  });
+  // Event delegation
+  container.onclick = (e: MouseEvent) => {
+    // Item selection
+    const bankItem = (e.target as HTMLElement).closest<HTMLElement>(".bank-item");
+    if (bankItem?.dataset.itemId) {
+      selectBankItem(bankItem.dataset.itemId);
+      return;
+    }
 
-  container.querySelectorAll<HTMLButtonElement>(".context-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const action = btn.dataset.action;
-      if (action === "equip") {
-        equip(state, btn.dataset.item!);
-      } else if (action === "equip-food") {
-        // Food equip just marks the type — no bank movement (combat eats from bank directly)
-        state.equipment.food = btn.dataset.item!;
-      } else if (action === "unequip-food") {
-        state.equipment.food = null;
-      } else if (action === "unequip") {
-        unequip(state, btn.dataset.slot as EquipSlot);
-      } else if (action === "sell") {
-        sellItem(state, btn.dataset.item!, 1);
-        if (!state.bank[btn.dataset.item!]) selectBankItem(null);
-      }
-    });
-  });
+    // Context panel actions
+    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>(".context-btn");
+    if (!btn) return;
+
+    const action = btn.dataset.action;
+    if (action === "equip") {
+      const itemId = btn.dataset.item!;
+      equip(state, itemId);
+      showNotification(`Equipped ${getItem(itemId).name}`, "info");
+      invalidateBankView();
+    } else if (action === "equip-food") {
+      const itemId = btn.dataset.item!;
+      state.equipment.food = itemId;
+      showNotification(`Set ${getItem(itemId).name} as food`, "info");
+      invalidateBankView();
+    } else if (action === "unequip-food") {
+      state.equipment.food = null;
+      invalidateBankView();
+    } else if (action === "unequip") {
+      unequip(state, btn.dataset.slot as EquipSlot);
+      invalidateBankView();
+    } else if (action === "sell") {
+      const itemId = btn.dataset.item!;
+      const item = getItem(itemId);
+      sellItem(state, itemId, 1);
+      showNotification(`Sold ${item.name} for ${item.sellPrice} GP`, "info");
+      if (!state.bank[itemId]) selectBankItem(null);
+      invalidateBankView();
+    }
+  };
 }

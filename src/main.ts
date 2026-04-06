@@ -5,9 +5,9 @@ import { formatNumber } from "./game/state";
 import { initNav, updateNav } from "./ui/nav";
 import { updateFooter } from "./ui/footer";
 import { renderSkillsView, invalidateSkillsView } from "./ui/skills-view";
-import { renderCombatView, addLootLogEntry } from "./ui/combat-view";
-import { renderTownView } from "./ui/town-view";
-import { renderBankView } from "./ui/bank-view";
+import { renderCombatView, addLootLogEntry, invalidateCombatView } from "./ui/combat-view";
+import { renderTownView, invalidateTownView } from "./ui/town-view";
+import { renderBankView, invalidateBankView } from "./ui/bank-view";
 import { getUIState, onUIChange } from "./ui/router";
 import { getItem } from "./data/items";
 import { getSkillAction } from "./data/skills";
@@ -56,7 +56,10 @@ async function init() {
 
   // Re-render on UI state changes (tab switches)
   onUIChange(() => {
-    invalidateSkillsView(); // Force full rebuild when switching tabs/skills
+    invalidateSkillsView();
+    invalidateCombatView();
+    invalidateTownView();
+    invalidateBankView();
     renderAll();
   });
 

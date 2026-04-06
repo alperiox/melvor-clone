@@ -3,8 +3,26 @@ import { BUILDINGS } from "../data/buildings";
 import { getItem } from "../data/items";
 import { canAffordUpgrade, upgradeBuilding, getBuildingUpgradeCost, getTownBonuses } from "../game/town";
 import { formatNumber } from "../game/state";
+import { showNotification } from "./notifications";
+
+// Track building levels to know when to rebuild
+let renderedBuildingLevels: string = "";
+
+export function invalidateTownView(): void {
+  renderedBuildingLevels = "";
+}
 
 export function renderTownView(state: GameState, container: HTMLElement): void {
+  // Rebuild when any building level changes
+  const currentLevels = JSON.stringify(state.town.buildings);
+  if (currentLevels !== renderedBuildingLevels) {
+    buildTownDOM(state, container);
+    renderedBuildingLevels = currentLevels;
+  }
+  updateTownDynamic(state, container);
+}
+
+function buildTownDOM(state: GameState, container: HTMLElement): void {
   const bonuses = getTownBonuses(state);
 
   let html = `<div class="building-grid">`;
@@ -12,9 +30,8 @@ export function renderTownView(state: GameState, container: HTMLElement): void {
   for (const def of BUILDINGS) {
     const level = state.town.buildings[def.id] ?? 0;
     const isMaxed = level >= def.maxLevel;
-    const canAfford = !isMaxed && canAffordUpgrade(state, def.id);
 
-    html += `<div class="building-card">
+    html += `<div class="building-card" data-building-id="${def.id}">
       <div class="building-name">${def.name}</div>
       <div class="building-level">Lv ${level} / ${def.maxLevel}</div>
       <div class="building-effect">${getBonusText(def.id, level)}</div>
@@ -30,7 +47,7 @@ export function renderTownView(state: GameState, container: HTMLElement): void {
         costParts.push(`${formatNumber(qty)} ${getItem(itemId).name}`);
       }
       html += `<div class="building-cost">Cost: ${costParts.join(", ")}</div>`;
-      html += `<button class="upgrade-btn" data-building="${def.id}" ${canAfford ? '' : 'disabled'}>Upgrade</button>`;
+      html += `<button class="upgrade-btn" data-building="${def.id}">Upgrade</button>`;
     }
 
     html += `</div>`;
@@ -38,20 +55,39 @@ export function renderTownView(state: GameState, container: HTMLElement): void {
 
   html += `</div>`;
 
-  // Market passive income display
   if (bonuses.passiveGoldPerMinute > 0) {
-    html += `<div style="margin-top: 16px; text-align: center; color: var(--gold); font-size: 13px;">
+    html += `<div data-el="market-income" style="margin-top: 16px; text-align: center; color: var(--gold); font-size: 13px;">
       Market income: +${formatNumber(bonuses.passiveGoldPerMinute)} GP/min
     </div>`;
+  } else {
+    html += `<div data-el="market-income" style="display:none;"></div>`;
   }
 
   container.innerHTML = html;
 
-  // Upgrade click handlers
+  // Event delegation
+  container.onclick = (e: MouseEvent) => {
+    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>(".upgrade-btn");
+    if (btn?.dataset.building) {
+      const buildingId = btn.dataset.building as BuildingId;
+      const success = upgradeBuilding(state, buildingId);
+      if (success) {
+        const def = BUILDINGS.find(b => b.id === buildingId);
+        const newLevel = state.town.buildings[buildingId];
+        showNotification(`${def?.name} upgraded to Lv ${newLevel}!`, "success");
+        invalidateTownView(); // Force rebuild to update costs/effects
+      }
+    }
+  };
+}
+
+function updateTownDynamic(state: GameState, container: HTMLElement): void {
+  // Update button disabled states based on current affordability
   container.querySelectorAll<HTMLButtonElement>(".upgrade-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      upgradeBuilding(state, btn.dataset.building as BuildingId);
-    });
+    if (btn.dataset.building) {
+      const affordable = canAffordUpgrade(state, btn.dataset.building as BuildingId);
+      btn.disabled = !affordable;
+    }
   });
 }
 
