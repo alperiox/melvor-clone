@@ -6,6 +6,7 @@ import { getTownBonuses } from "./town";
 
 export interface SkillTickResult {
   actionsCompleted: number;
+  successfulActions: number;
   xpGained: number;
   stoppedNoMaterials: boolean;
 }
@@ -47,7 +48,7 @@ export function getEffectiveInterval(state: GameState, actionId: string): number
 
 /** Process one frame tick for the active skill action. */
 export function processSkillTick(state: GameState, dt: number): SkillTickResult {
-  const result: SkillTickResult = { actionsCompleted: 0, xpGained: 0, stoppedNoMaterials: false };
+  const result: SkillTickResult = { actionsCompleted: 0, successfulActions: 0, xpGained: 0, stoppedNoMaterials: false };
 
   if (!state.activeAction || state.activeAction.type !== "skill" || !state.activeAction.actionId) {
     return result;
@@ -103,6 +104,7 @@ export function processSkillTick(state: GameState, dt: number): SkillTickResult 
     state.skills[action.skillId].xp += action.xp;
     result.xpGained += action.xp;
     result.actionsCompleted++;
+    result.successfulActions++;
 
     // Update level
     const newLevel = levelForXp(state.skills[action.skillId].xp);

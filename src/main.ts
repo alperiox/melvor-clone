@@ -4,12 +4,14 @@ import { calculateOfflineProgress } from "./game/offline";
 import { formatNumber } from "./game/state";
 import { initNav, updateNav } from "./ui/nav";
 import { updateFooter } from "./ui/footer";
-import { renderSkillsView } from "./ui/skills-view";
+import { renderSkillsView, invalidateSkillsView } from "./ui/skills-view";
 import { renderCombatView, addLootLogEntry } from "./ui/combat-view";
 import { renderTownView } from "./ui/town-view";
 import { renderBankView } from "./ui/bank-view";
 import { getUIState, onUIChange } from "./ui/router";
 import { getItem } from "./data/items";
+import { getSkillAction } from "./data/skills";
+import { showNotification } from "./ui/notifications";
 
 async function init() {
   const state = await loadGame();
@@ -35,31 +37,62 @@ async function init() {
   // Init UI
   initNav();
 
+  const skillsPanel = document.getElementById("tab-skills")!;
+  const combatPanel = document.getElementById("tab-combat")!;
+  const townPanel = document.getElementById("tab-town")!;
+  const bankPanel = document.getElementById("tab-bank")!;
+
   // Full re-render function
   function renderAll() {
     const ui = getUIState();
     updateNav(state);
     updateFooter(state);
 
-    const skillsPanel = document.getElementById("tab-skills")!;
-    const combatPanel = document.getElementById("tab-combat")!;
-    const townPanel = document.getElementById("tab-town")!;
-    const bankPanel = document.getElementById("tab-bank")!;
-
-    // Only render the active tab (performance)
     if (ui.activeTab === "skills") renderSkillsView(state, skillsPanel);
     if (ui.activeTab === "combat") renderCombatView(state, combatPanel);
     if (ui.activeTab === "town") renderTownView(state, townPanel);
     if (ui.activeTab === "bank") renderBankView(state, bankPanel);
   }
 
-  // Re-render on UI state changes (tab switches, etc.)
-  onUIChange(renderAll);
+  // Re-render on UI state changes (tab switches)
+  onUIChange(() => {
+    invalidateSkillsView(); // Force full rebuild when switching tabs/skills
+    renderAll();
+  });
 
-  // Throttled render: re-render at ~10fps for the active view
+  // Track previous level for level-up notifications
+  const prevLevels: Record<string, number> = {};
+  for (const [sid, s] of Object.entries(state.skills)) {
+    prevLevels[sid] = s.level;
+  }
+
+  // Throttled render
   let renderAccum = 0;
   engine.onTick((_state, result, dt) => {
-    // Process loot log entries
+    // Skill action notifications
+    if (result.skillResult && result.skillResult.actionsCompleted > 0 && state.activeAction?.actionId) {
+      const action = getSkillAction(state.activeAction.actionId);
+      const outputNames = Object.entries(action.outputs).map(([id, qty]) =>
+        `${qty * result.skillResult!.successfulActions} ${getItem(id).name}`
+      ).join(", ");
+      if (outputNames && result.skillResult.successfulActions > 0) {
+        showNotification(`+${outputNames}  (+${result.skillResult.xpGained} XP)`, "success");
+      }
+    }
+    if (result.skillResult?.stoppedNoMaterials) {
+      showNotification("Ran out of materials!", "warning");
+    }
+
+    // Level-up notifications
+    for (const [sid, s] of Object.entries(state.skills)) {
+      if (s.level > (prevLevels[sid] ?? 0)) {
+        const name = sid.charAt(0).toUpperCase() + sid.slice(1);
+        showNotification(`${name} leveled up to ${s.level}!`, "success");
+        prevLevels[sid] = s.level;
+      }
+    }
+
+    // Combat loot log
     if (result.combatResult?.loot) {
       const loot = result.combatResult.loot;
       let entry = `<span class="loot-gold">+${loot.gold} GP</span>`;
@@ -70,6 +103,7 @@ async function init() {
     }
     if (result.combatResult?.playerDied) {
       addLootLogEntry('<span style="color: var(--red);">You died!</span>');
+      showNotification("You died!", "warning");
     }
 
     renderAccum += dt;
