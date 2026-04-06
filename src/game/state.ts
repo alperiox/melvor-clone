@@ -1,24 +1,28 @@
-export interface GameState {
-  /** Primary currency and any additional resources */
-  resources: Record<string, number>;
-  /** Upgrade IDs mapped to their current level */
-  upgrades: Record<string, number>;
-  /** Lifetime stats for display and achievements */
-  stats: {
-    totalClicks: number;
-    totalEarned: number;
-    startedAt: number;
-    lastSavedAt: number;
-  };
-}
+import { GameState, SkillId, BuildingId } from "./types";
+
+const ALL_SKILLS: SkillId[] = ["woodcutting", "mining", "fishing", "smithing", "cooking", "combat"];
+const ALL_BUILDINGS: BuildingId[] = ["lumber_mill", "mine_shaft", "fishery", "forge", "kitchen", "barracks", "market"];
 
 export function createInitialState(): GameState {
+  const skills: GameState["skills"] = {} as GameState["skills"];
+  for (const s of ALL_SKILLS) {
+    skills[s] = { level: 1, xp: 0 };
+  }
+
+  const buildings: GameState["town"]["buildings"] = {} as GameState["town"]["buildings"];
+  for (const b of ALL_BUILDINGS) {
+    buildings[b] = 0;
+  }
+
   return {
-    resources: { main: 0 },
-    upgrades: {},
+    skills,
+    bank: {},
+    equipment: { weapon: null, head: null, body: null, legs: null, feet: null, food: null },
+    combat: null,
+    town: { buildings },
+    activeAction: null,
+    gold: 0,
     stats: {
-      totalClicks: 0,
-      totalEarned: 0,
       startedAt: Date.now(),
       lastSavedAt: Date.now(),
     },
